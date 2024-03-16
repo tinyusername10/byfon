@@ -17,7 +17,7 @@
  end
  
  -- Notification library
- local Notification = loadstring(game:HttpGet("https://raw.githubusercontent.com/tinyusername10/byfon/main/notification%20soer?token=GHSAT0AAAAAACPU33U6ZW4ZI4TLO7OXT2UUZPVJJTA"))();
+ local Notification = loadstring(game:HttpGet("https://raw.githubusercontent.com/tinyusername10/byfon/main/source"))();
  local Notify = Notification.Notify;
 
  Notify({
