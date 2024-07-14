@@ -1,3 +1,25 @@
+--[[
+	patchma hub by MyWorld
+	optimize the optimized
+
+	IDs of paid accessories:
+
+	-for arms 11159410305,11263254795 or 14255556501,14255554762 or 12344545199,12344591101 or 13839976999,13831200263
+
+	-for legs 14768693948,14768701869 or 11159483910,12652786974 or 17401151565,17387616772
+
+	-for torso 14255528083 or 13421786478 or 14768678294
+
+	or anything else that covers ur torso. examples:
+	14532301415,13423624885,11502853991,14053485259,13779879140,14443132226,17163407577,16297156693,17180496303,17171230401
+	can be same stuff but different colors
+
+	there are 156 ways to make a rig with the ids above
+
+	IDs of free accessories:
+	3033910400,3409612660,3438342658,3398308134,4324158403,3822880197,4154538250,3443038622,4819740796
+]]
+
 --no need to get and index the library tables with function names every time the script uses them
 local osclock=os.clock
 local tspawn=task.spawn
@@ -137,21 +159,29 @@ local guiTheme={
 }
 
 local accessorylimbs={
-
 	{meshid="11263221350",textureid="11263219250",C0=angles(1.5707963267948966,0,1.5707963267948966),Name="Left Arm"},
 	{meshid="11159370334",textureid="11159284657",C0=angles(-1.5707963267948966,0,1.5707963267948966),Name="Right Arm"},
 
 	{meshid="14255522247",textureid="",C0=angles(1.5707963267948966,0,1.5707963267948966),Name="Left Arm"},
 	{meshid="14255522247",textureid="",C0=angles(-1.5707963267948966,0,1.5707963267948966),Name="Right Arm"},
 
+	{meshid="17374767929",textureid="",C0=angles(1.5707963267948966,0,1.5707963267948966),Name="Left Arm"},
+	{meshid="17374767929",textureid="",C0=angles(-1.5707963267948966,0,1.5707963267948966),Name="Right Arm"},
+
 	{meshid="12344207333",textureid="",C0=angles(2,0,0),Name="Left Arm"},
 	{meshid="12344206657",textureid="",C0=angles(2,0,0),Name="Right Arm"},
+
+	{meshid="13831073174",textureid="",C0=cfMul(cf(0.017,0,-0.23),angles(-1.4835298641951802,-0.15707963267948966,2.199114857512855)),Name="Left Arm"},
+	{meshid="13839903766",textureid="",C0=cfMul(cf(0,-0.62,-0.01),angles(1.6580627893946132,0.15707963267948966,-2.199114857512855)),Name="Right Arm"},
 
 	{meshid="11159370334",textureid="11159285454",C0=angles(1.5707963267948966,0,1.5707963267948966),Name="Left Leg"},
 	{meshid="12652772399",textureid="12652775021",C0=cf(0,-0.125,0),Name="Right Leg"},
 
 	{meshid="14768684979",textureid="",C0=angles(0,0,1.5707963267948966),Name="Left Leg"},
 	{meshid="14768684979",textureid="",C0=angles(0,0,1.5707963267948966),Name="Right Leg"},
+
+	{meshid="17387586286",textureid="",C0=angles(1.5707963267948966,0,1.5707963267948966),Name="Left Leg"},
+	{meshid="17387586286",textureid="",C0=angles(-1.5707963267948966,0,1.5707963267948966),Name="Right Leg"},
 
 	{meshid="14768666349",textureid="",C0=cf_0,Name="Torso"},
 	{meshid="14241018198",textureid="",C0=cf_0,Name="Torso"},
@@ -195,18 +225,6 @@ local function getNetlessVelocity(realVel)
 		return v3Get(realVel,"Unit")*v3_xzL+v3_net
 	end
 	return realVel*v3_xz+v3_net
-end
-local sft=1/45
-local function getFallingTime(Ypos,destY,gravity)
-	local velY=25.01
-	local fallingTime=0
-	gravity=gravity*sft
-	while (Ypos>destY) or (velY>0) do
-		fallingTime=fallingTime+sft
-		velY=velY-gravity
-		Ypos=Ypos+(velY*sft)
-	end
-	return fallingTime
 end
 local function getMeshOfPart(v)
 	if IsA(v,"MeshPart") then
@@ -258,7 +276,7 @@ insSet(i1,"AnchorPoint",v2(0.5,0))
 insSet(i1,"Active",true)
 insSet(i1,"BorderSizePixel",0)
 insSet(i1,"ClipsDescendants",true)
-insSet(i1,"Position",u2(0.5,0,0.5,-150))
+insSet(i1,"Position",u2(0.5,0,0.5,guiTheme.windowRegularSize.Y/-2))
 insSet(i1,"Size",u2(0,guiTheme.windowRegularSize.X,0,guiTheme.windowRegularSize.Y))
 insSet(i1,"Name",rs())
 insSet(i1,"Parent",i10)
@@ -501,7 +519,9 @@ local clickfling=nil
 local highlightflingtargets=nil
 local discharscripts=nil
 local flingchangestate=nil
-local respawntp=true
+local respawntp=nil
+local breakjointsmethod=nil
+local simrad=false
 
 local c=nil
 local function stopreanimate() 
@@ -585,9 +605,9 @@ local function reanimate()
 	camcon2=Connect(GetPropertyChangedSignal(ws,"CurrentCamera"),onnewcamera)
 	onnewcamera()
 
-	local rGravity=insGet(ws,"Gravity")
+	local velYdelta=insGet(ws,"Gravity")*0.025
 	Connect(GetPropertyChangedSignal(ws,"Gravity"),function()
-		rGravity=insGet(ws,"Gravity")
+		velYdelta=insGet(ws,"Gravity")*0.025
 	end)
 
 	local fpdh=insGet(ws,"FallenPartsDestroyHeight")
@@ -884,8 +904,10 @@ local function reanimate()
 		end
 	end
 
+	local simradv=0
 	local charcons={}
 	local function onplayer(v)
+		simradv=simradv+1000
 		local lastc=nil
 		local function oncharacter()
 			local newc=insGet(v,"Character")
@@ -948,7 +970,7 @@ local function reanimate()
 						insSet(hrp,"CFrame",cfr)
 						twait(0.2501)
 					end
-					if respawntp then
+					if respawntp==1 then
 						local startpos=pos+v3(mrandom(-32,32),0,mrandom(-32,32))
 						local dir=nil
 						local poscheck=true
@@ -958,14 +980,14 @@ local function reanimate()
 								local diff=(startpos-insGet(v,"Position"))*v3_101
 								if v3Get(diff,"Magnitude")<10 then
 									poscheck=true
-									dir=dir or (v3Get(diff,"Unit") * 3)
+									dir=dir or (v3Get(diff,"Unit")*3)
 									startpos=startpos+dir
 								end
 							end
 							local diff=(startpos-pos)*v3_101
 							if v3Get(diff,"Magnitude")<10 then
 								poscheck=true
-								dir=dir or (v3Get(diff,"Unit") * 3)
+								dir=dir or (v3Get(diff,"Unit")*3)
 								startpos=startpos+dir
 							end
 						end
@@ -974,12 +996,43 @@ local function reanimate()
 						insSet(hrp,"AssemblyLinearVelocity",v3_0)
 						insSet(hrp,"AssemblyAngularVelocity",v3_0)
 						twait(0.2501)
+					elseif respawntp==2 then
+						insSet(hrp,"CFrame",cfAdd(cfr,cfGet(cfr,"RightVector")*3.5-cfGet(cfr,"LookVector")*3.5))
+						insSet(hrp,"AssemblyLinearVelocity",v3_0)
+						insSet(hrp,"AssemblyAngularVelocity",v3_0)
+						twait(0.2501)
+					elseif respawntp==3 then
+						local t=osclock()+0.2501
+						local startcf=cfAdd(cfMul(cfGet(cfr,"Rotation"),angles(1.5707963267948966,0,0)),pos*v3_101+v3_010*(fpdh+30))
+						while twait() do
+							insSet(hrp,"CFrame",startcf)
+							insSet(hrp,"AssemblyLinearVelocity",v3_0)
+							insSet(hrp,"AssemblyAngularVelocity",v3_0)
+							if osclock()>t then
+								break
+							end
+						end
 					end
 					if newc~=c then
 						return
 					end
 					primarypart=insGet(newc,"PrimaryPart") or hrp
-					insGet(newc,"BreakJoints")(newc)
+					if breakjointsmethod==1 then
+						insGet(newc,"BreakJoints")(newc)
+						local h=FindFirstChildOfClass(newc,"Humanoid")
+						if h then
+							insSet(h,"Health",0)
+						end
+					elseif breakjointsmethod==2 then
+						local h=FindFirstChildOfClass(newc,"Humanoid")
+						if h then
+							insSet(h,"Health",0)
+						else
+							insGet(newc,"BreakJoints")(newc)
+						end
+					else
+						insGet(newc,"BreakJoints")(newc)
+					end
 					Connect(insGet(newc,"DescendantAdded"),ondes)
 					for i,v in next,GetDescendants(newc) do
 						ondes(v)
@@ -995,9 +1048,11 @@ local function reanimate()
 		charcons[v]=Connect(GetPropertyChangedSignal(v,"Character"),oncharacter)
 		oncharacter()
 	end
-	for i,v in next,GetPlayers(plrs) do onplayer(v) end
+	for i,v in next,GetPlayers(plrs) do simradv=simradv+1000 if v~=lp then tspawn(onplayer,v) end end
 	Connect(insGet(plrs,"PlayerAdded"),onplayer)
+	onplayer(lp)
 	Connect(insGet(plrs,"PlayerRemoving"),function(v)
+		simradv=simradv-1000
 		local charcon=charcons[v]
 		if charcon then
 			Disconnect(charcon)
@@ -1005,12 +1060,27 @@ local function reanimate()
 		characters[v]=nil
 		rootparts[v]=nil
 	end)
+	local setsimrad=emptyfunction
+	if simrad then
+		setsimrad=function()
+			local canset,_=pcall(function()
+				insSet(lp,"SimulationRadius",simradv)
+			end)
+			if canset then
+				setsimrad=function()
+					insSet(lp,"SimulationRadius",simradv)
+				end
+			else
+				setsimrad=emptyfunction
+			end
+		end
+	end
 
 	local mradN05=rad(-0.5)
 	local KeyCode=e.KeyCode
-	local enumMLC=e.MouseBehavior.LockCenter
 	local enumMB2=e.UserInputType.MouseButton2
 	local enumMLCP=e.MouseBehavior.LockCurrentPosition
+	local enumMLC=(insGet(uis,"TouchEnabled") and enumMLCP) or e.MouseBehavior.LockCenter 
 	local enumMD=e.MouseBehavior.Default
 	local enumMW=e.UserInputType.MouseWheel
 	local enumMM=e.UserInputType.MouseMovement
@@ -1697,34 +1767,56 @@ local function reanimate()
 		tclear(refreshedjoints)
 
 		local idlerv=v3(sin((sine-0.0375)*16),sin(sine*16),sin((sine+0.075)*16))
-		local idleoff=idlerv*0.001
+		local idleoff=idlerv*0.0015
 
 		local claimpos=insGet(primarypart,"Position")
 		local claimposY=v3Get(claimpos,"Y")
 		for i,v in next,cframes do
 			local part=i.p
+			
 			if part then
 				if insGet(part,"ReceiveAge")==0 then
 					local placeholder=i.v
-					if placeholder then
-						insSet(placeholder,"Parent",nil)
-					end
 					if novoid and (cfGet(v,"Y")<novoid) then
 						v=cfAdd(v,v3_010*(novoid-cfGet(v,"Y")))
 					end
 					local lastpos=i.l
 					local vel=(cfGet(v,"Position")-lastpos)/delta
-					if v3Get(vel,"Magnitude")<0.15 then
+					local mag=v3Get(vel,"Magnitude")
+					if mag<0.15 then
+						if placeholder then
+							insSet(placeholder,"Parent",nil)
+						end
+						i.l=cfGet(v,"Position")
 						v=cfAdd(v,idleoff)
-					elseif v3Get(vel,"Magnitude")>speedlimit then
+					elseif mag>speedlimit then
+						if placeholder then
+							insSet(placeholder,"CFrame",v)
+							insSet(placeholder,"Parent",ws)
+						end
 						vel=v3Get(vel,"Unit")*speedlimit
-						v=cfAdd(cfGet(v,"Rotation"),lastpos+vel*delta)
+						local newpos=lastpos+vel*delta
+						v=cfAdd(cfGet(v,"Rotation"),newpos)
+						i.l=newpos
+					elseif placeholder then
+						insSet(placeholder,"Parent",nil)
+						i.l=cfGet(v,"Position")
 					end
-					i.l=cfGet(v,"Position")
 					local claimtime=i.c
 					if claimtime then
 						if sine-claimtime<retVelTime then
-							insSet(part,"AssemblyLinearVelocity",(claimpos-cfGet(v,"Position"))*v3_101/getFallingTime(cfGet(v,"Y"),claimposY,rGravity)+v3_net)
+							local Ydiff=cfGet(v,"Y")-claimposY
+							local velY=25.01
+							local fallingTime=0
+							while (Ydiff>0) or (velY>0) do
+								fallingTime=fallingTime+0.025
+								if fallingTime>0.6 then
+									break
+								end
+								velY=velY-velYdelta
+								Ydiff=Ydiff+(velY*0.025)
+							end
+							insSet(part,"AssemblyLinearVelocity",(claimpos-cfGet(v,"Position"))*v3_101/fallingTime+v3_net)
 						else
 							insSet(part,"AssemblyLinearVelocity",getNetlessVelocity(vel*noYvelTime+xzvel))
 						end
@@ -1739,18 +1831,19 @@ local function reanimate()
 					i.l=insGet(part,"Position")
 					local placeholder=i.v
 					if placeholder then
-						insSet(placeholder,"Parent",ws)
 						insSet(placeholder,"CFrame",v)
+						insSet(placeholder,"Parent",ws)
 					end
 				end
 			else
 				local placeholder=i.v
 				if placeholder then
-					insSet(placeholder,"Parent",ws)
 					insSet(placeholder,"CFrame",v)
+					insSet(placeholder,"Parent",ws)
 				end
 			end
 		end
+		setsimrad()
 	end
 
 	sine=osclock()
@@ -1832,8 +1925,16 @@ local function reanimate()
 	end
 	local function setCfr(v) --sets character cframe
 		if typeof(v)=="CFrame" then
+			local newpos=cfGet(v,"Position")
+			camcf=cfAdd(camcf,newpos-pos)
+			insSet(cam,"CFrame",camcf)
 			cfr=v
-			pos=cfGet(v,"Position")
+			pos=newpos
+		elseif typeof(v)=="Vector3" then
+			camcf=cfAdd(camcf,v-pos)
+			insSet(cam,"CFrame",camcf)
+			cfr=cfAdd(cfGet(cfr,"Rotation"),v)
+			pos=v
 		end
 	end
 	local function getVel() --returns character velocity
@@ -3177,8 +3278,10 @@ end)
 lbl("(limb collision)")
 
 swtc("respawn tp",{
-	{value=true,text="random tp close"},
-	{value=false,text="stay at spawn"}
+	{value=3,text="hide body"},
+	{value=0,text="stay at spawn"},
+	{value=1,text="random tp close"},
+	{value=2,text="behind char"}
 },function(v)
 	respawntp=v
 end)
@@ -3207,10 +3310,25 @@ swtc("new character scripts",{
 	discharscripts=v
 end)
 
+swtc("breakjoints",{
+	{value=1,text="breakjoints+health"},
+	{value=2,text="health or breakjoints"},
+	{value=3,text="breakjoints"}
+},function(v)
+	breakjointsmethod=v
+end)
+
+swtc("set simulation radius",{
+	{value=true,text="yes"},
+	{value=false,text="no"},
+},function(v)
+	simrad=v
+end)
+
 local iscg,_=pcall(insSet,i10,"Parent",FindFirstChildOfClass(game,"CoreGui"))
 if not iscg then
 	insSet(i7,"Text","PLAYERGUI MODE")
 	insSet(i10,"Parent",pg)
 	twait(3)
 	insSet(i7,"Text",guiTheme.guiTitle)
-end 
+end
