@@ -1,6 +1,6 @@
 --[[
-	patchma hub made by MyWorld
-   	- continued by Emper due to MyWorld quitting
+	patchma hub made originally by MyWorld, updated and owned by Emper
+   	
     optimize the optimized
 
 	IDs of paid accessories:
@@ -27,7 +27,26 @@
 	sword: 17326812233,17326800544
 ]]
 
+local USE_METAMETHOD_OPTIMIZATIONS = false
+--[[^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+if this is enabled, patchma will run faster
+and even gain some fps, if disabled, patchma will
+be able to run on most; if not all executors
+
+if you're editing patchma and planning to release it
+closed source, we recommend you keep it disabled
+
+if you're using patchma yourself on an executor
+that has proper sandboxing, we recommend you
+keep it enabled
+-------------------------------------
+if you don't know whatever I said means
+just enable it, see if it works
+if it doesn't, just disable it.
+]]
+
 --no need to get and index the library tables with function names every time the script uses them
+
 local osclock=os.clock
 local tspawn=task.spawn
 local twait=task.wait
@@ -95,23 +114,49 @@ local rs=function(l)
 	return s 
 end
 
---it runs even faster if u call __index and __newindex of metatables of userdata directly
-local getMetamethodFromErrorStack=function(userdata,f,test)
-	local ret=nil
-	xpcall(f,function()
-		ret=debug.info(2,"f")
-	end,userdata,nil,0)
-	if (type(ret)~="function") or not test(ret) then
-		return f
+local insSet = nil
+local insGet = nil
+local cfGet = nil
+local cfMul = nil
+local cfAdd = nil
+local v3Get = nil
+
+if USE_METAMETHOD_OPTIMIZATIONS then
+	--it runs even faster if u call __index and __newindex of metatables of userdata directly
+	local di = debug.info
+	local getMetamethodFromErrorStack=function(userdata,f,test)
+		local ret=nil
+		xpcall(f,function()
+			ret=di(2,"f")
+		end,userdata,nil,0)
+		if (type(ret)~="function") or not test(ret) then
+			return f
+		end
+		return ret
 	end
-	return ret
+	insSet=getMetamethodFromErrorStack(game,function(a,b,c) a[b]=c end,function(f) local a=i("Folder") local b=rs() f(a,"Name",b) return a.Name==b end)
+	insGet=getMetamethodFromErrorStack(game,function(a,b) return a[b] end,function(f) local a=i("Folder") local b=rs() a.Name=b return f(a,"Name")==b end)
+	cfGet=getMetamethodFromErrorStack(cf_0,function(a,b) return a[b] end,function(f) return f(cf(1,2,3),"Position")==v3(1,2,3) end)
+	cfMul=getMetamethodFromErrorStack(cf_0,function(a,b) return a*b end,function(f) return angles(1,2,3)*angles(1,2,3)==f(angles(1,2,3),angles(1,2,3)) end)
+	cfAdd=getMetamethodFromErrorStack(cf_0,function(a,b) return a+b end,function(f) return cf(1,2,3)+v3(1,2,3)==f(cf(1,2,3),v3(1,2,3)) end)
+	v3Get=getMetamethodFromErrorStack(v3_0,function(a,b) return a[b] end,function(f) return v3(1,2,3).Unit==f(v3(1,2,3),"Unit") end)
+	di = nil	
+else
+	insSet = function(self, index, value)
+		self[index] = value
+	end
+	insGet = function(self, index)
+		return self[index]
+	end
+	cfGet = insGet
+	cfMul = function(cf0, cf1)
+		return cf0 * cf1
+	end
+	cfAdd = function(cf0, cf1)
+		return cf0 + cf1
+	end
+	v3Get = insGet
 end
-local insSet=getMetamethodFromErrorStack(game,function(a,b,c) a[b]=c end,function(f) local a=i("Folder") local b=rs() f(a,"Name",b) return a.Name==b end)
-local insGet=getMetamethodFromErrorStack(game,function(a,b) return a[b] end,function(f) local a=i("Folder") local b=rs() a.Name=b return f(a,"Name")==b end)
-local cfGet=getMetamethodFromErrorStack(cf_0,function(a,b) return a[b] end,function(f) return f(cf(1,2,3),"Position")==v3(1,2,3) end)
-local cfMul=getMetamethodFromErrorStack(cf_0,function(a,b) return a*b end,function(f) return angles(1,2,3)*angles(1,2,3)==f(angles(1,2,3),angles(1,2,3)) end)
-local cfAdd=getMetamethodFromErrorStack(cf_0,function(a,b) return a+b end,function(f) return cf(1,2,3)+v3(1,2,3)==f(cf(1,2,3),v3(1,2,3)) end)
-local v3Get=getMetamethodFromErrorStack(v3_0,function(a,b) return a[b] end,function(f) return v3(1,2,3).Unit==f(v3(1,2,3),"Unit") end)
 --multiplying and adding vector3 is faster if you use the * and + operators
 
 --no need to index instances every time to call their functions
@@ -145,7 +190,7 @@ local SetCoreGuiEnabled=insGet(sg,"SetCoreGuiEnabled")
 local GetCoreGuiEnabled=insGet(sg,"GetCoreGuiEnabled")
 local Raycast=insGet(ws,"Raycast")
 local Connect=heartbeat.Connect
-local Disconnect=Connect(GetPropertyChangedSignal(game,"CreatorId"),type).Disconnect
+local Disconnect=nil--Connect(GetPropertyChangedSignal(game,"CreatorId"),type).Disconnect
 local Wait=heartbeat.Wait
 local GetMouseLocation=insGet(uis,"GetMouseLocation")
 local GetFocusedTextBox=insGet(uis,"GetFocusedTextBox")
@@ -157,7 +202,7 @@ local Inverse=cfGet(cf_0,"Inverse")
 local Lerp=cfGet(cf_0,"Lerp")
 
 local guiTheme={
-	guiTitle="patchma hub (E.U.)",
+	guiTitle="patchma hub",
 	windowTitleColor=c3(0,0,1),
 	windowTopColor=c3(0,0,0),
 	windowBottomColor=c3(0,0,0.584314),
@@ -344,7 +389,7 @@ local i1X=guiTheme.windowRegularSize.X
 local i1Y=guiTheme.windowRegularSize.Y
 local i1Xdest=i1X
 local i1Ydest=i1Y
-Connect(insGet(i8,"MouseButton1Click"),function()
+a = Connect(insGet(i8,"MouseButton1Click"),function()
 	guimin = not guimin
 	if guimin then
 		i1Xdest=guiTheme.windowMinimizedSize.X
@@ -380,6 +425,8 @@ Connect(insGet(i8,"MouseButton1Click"),function()
 	insSet(i3,"Visible",not guimin) 
 	minloop=false
 end)
+Disconnect = a.Disconnect
+a = nil
 local Draggable=function(window,obj)
 	local MB1enum = e.UserInputType.MouseButton1
 	local TOUCHenum = e.UserInputType.Touch
@@ -509,8 +556,8 @@ end
 
 Draggable(i1)
 
-lbl("made by MyWorld")
-lbl("continued by Emper")
+lbl("made originally by MyWorld")
+lbl("continued and owned by Emper")
 lbl("discord.gg/QMy5f6DrbH")
 
 local allowshiftlock=nil
@@ -545,10 +592,10 @@ local reanimate=function()
 	local retVelTime = 0.51 --time that claimed parts have velocity to reclaim in case u lose them
 	local walkSpeed = 16 --your walkspeed (can be changed at runtime)
 	local jumpPower = 50 --your jump power (can be changed at runtime)
-	local gravity = 196.2 --how fast the characters velocity decreases while falling (can be changed at runtime)
+	local gravity = 196.1999969482422 --how fast the characters velocity decreases while falling (can be changed at runtime)
 	local ctrlclicktp = ctrltp --makes you teleport where u point ur mouse cursor at when click and hold ctrl down
 	local clickfling = clickfling --makes you fling the person you clicked when its available to do so
-	local flingvel = v3(15000,16000,15000) --the rotation velocity that ur character will have while flinging
+	local flingvel = v3(4096,4096,4096) --the rotation velocity that ur character will have while flinging
 
 	if stopreanimate() then return end
 	c=insGet(lp,"Character")
@@ -791,7 +838,7 @@ local reanimate=function()
 	end
 
 	local raycastparams=rp()
-	raycastparams.FilterType=e.RaycastFilterType.Blacklist
+	raycastparams.FilterType=e.RaycastFilterType.Exclude
 	raycastparams.RespectCanCollide=true
 	local rayfilter={}
 	local characters={}
@@ -1031,6 +1078,11 @@ local reanimate=function()
 								break
 							end
 						end
+					elseif respawntp == 4 then --[[hat.drop]]
+						insSet(hrp, "AssemblyAngularVelocity", v3_0)
+						insSet(hrp, "AssemblyLinearVelocity", v3_0)
+						insSet(hrp, "CFrame", cf(insGet(cfr, "X"), insGet(ws, "FallenPartsDestroyHeight") + 0.356, insGet(cfr, "Z")))
+						twait(0.16)	
 					end
 					if newc~=c then
 						return
@@ -3704,7 +3756,8 @@ swtc("respawn tp",{
 	{value=3,text="hide body"},
 	{value=0,text="stay at spawn"},
 	{value=1,text="random tp close"},
-	{value=2,text="behind char"}
+	{value=2,text="behind char"},
+	{value=4,text="hat drop"}
 },function(v)
 	respawntp=v
 end)
